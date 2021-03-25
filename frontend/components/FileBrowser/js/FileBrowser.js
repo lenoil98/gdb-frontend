@@ -130,6 +130,10 @@
                                 $fileBrowser_window_box_header_path_input_rI.val(data.path);
                             }
 
+                            result_json.files.sort(function (a, b) {
+                                return a.name.localeCompare(b.name);
+                            });
+                            
                             $fileBrowser_total_number.html(result_json.files.length);
 
                             if (data.path == '/') {
@@ -179,6 +183,8 @@
                                             onFileSelected: data.onFileSelected
                                         });
                                     } else {
+                                        _file.path = _file.path.replace(/\/+/gi, '/');
+                                        
                                         data.onFileSelected({file: _file});
                                         $fileBrowser.trigger('FileBrowser_file_selected', {file: _file, item: item});
                                     }
@@ -291,7 +297,7 @@
                     }
 
                     var path = $fileBrowser_window_box_header_path_input_rI.val();
-
+                    
                     if (!path.length) {
                         path = '/';
                     }
@@ -340,6 +346,8 @@
                     if (path == prev_path) {
                         return;
                     }
+
+                    data.clearSelected();
 
                     prev_path = path;
 

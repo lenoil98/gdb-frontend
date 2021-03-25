@@ -72,6 +72,8 @@
             var $fileTabs_editors_items = $fileTabs.find('.FileTabs_editors_items');
             var $fileTabs_editors_items_item__proto = $fileTabs.find('.FileTabs_editors_items_item.__proto');
 
+            data.ace_theme = 'ace/theme/tomorrow_night_blue';
+            
             data.animation_duration = 100;
 
             data.is_passive = false;
@@ -79,6 +81,185 @@
             data.file_i = 0;
 
             data.current = false;
+
+            data.setAceTheme = function (theme) {
+                data.ace_theme = theme;
+                data.files.every(function (_file) {
+                    _file.ace.setTheme(data.ace_theme);
+                });
+            };
+            
+            data.loadInstructions = function (parameters) {
+                data.files.every(function (_file, _file_i) {
+                    if (_file.disassembly === undefined) {
+                        return true;
+                    }
+
+                    _file.disassembly.load({
+                        pc: parameters.pc,
+                        instructions: parameters.instructions
+                    });
+                    
+                    _file.disassembly.render();
+                });
+            };
+
+            data.openDisassembly = function (parameters) {
+                if (parameters === undefined) {
+                    parameters = {};
+                }
+
+                if (parameters.switch === undefined) {
+                    parameters.switch = false;
+                }
+
+                var file ;
+
+                if (file = data.getFile({disassembly: true})) {
+                    return {
+                        exists: true,
+                        file: file
+                    };
+                }
+
+                file = {};
+
+                file.id = ++data.file_i;
+                file.breakpoints = [];
+                file.stopped_addr = 0;
+
+                file.name = 'Disassembly';
+
+                file.$tab = $fileTabs_tabs_items_item__proto.clone();
+                file.$tab.removeClass('__proto');
+                file.$tab.appendTo($fileTabs_tabs_items);
+
+                file.$tab_pathTooltip = file.$tab.find('.FileTabs_tabs_items_item_pathTooltip');
+                file.$tab_isChanged = file.$tab.find('.FileTabs_tabs_items_item_isChanged');
+                file.$tab_fileName = file.$tab.find('.FileTabs_tabs_items_item_fileName');
+                file.$tab_closeBtn = file.$tab.find('.FileTabs_tabs_items_item_closeBtn');
+
+                file.$tab_fileName.html(file.name);
+
+                file.$tab_closeBtn.on('click.FileTabs'+data.id, function (event) {
+                    data.closeFile({file: file});
+                });
+
+                file.$tab_fileName.on('click.FileTabs'+data.id, function (event) {
+                    data.switchFile({file: file});
+                });
+
+                file.$tab_pathTooltip.hide();
+
+                file.$editor = $fileTabs_editors_items_item__proto.clone();
+                file.$editor.removeClass('__proto');
+                file.$editor.appendTo($fileTabs_editors_items);
+
+                file.$editor.find('.FileTabs_editors_items_item_ace').remove();
+
+                Object.assign(file, $.fn.Disassembly.new(file.$editor));
+
+                file.$disassembly.on('Disassembly_breakpoints_toggle.FileTabs-'+data.id, function (event, parameters) {
+                    $fileTabs.trigger('FileTabs_breakpoints_toggle', {
+                        file: file,
+                        instruction: parameters.instruction
+                    });
+                });
+
+                file.disassembly.view_length = false;
+
+                file.getBreakpoint = function (parameters) {
+                    var bp = false;
+
+                    file.breakpoints.forEach(function (_bp, _bp_i) {
+                        if (parameters.check(_bp)) {
+                            bp = _bp;
+                            return false;
+                        }
+                    });
+
+                    return bp;
+                };
+
+                file.addBreakpoint = function (parameters) {
+                    var is_exists = false;
+
+                    file.breakpoints.forEach(function (_bp, _bp_i) {
+                        if (_bp.address == parameters.address) {
+                            is_exists = true;
+                            return false;
+                        }
+                    });
+
+                    if (is_exists) return false;
+
+                    file.breakpoints.push({address: parameters.address});
+
+                    file.disassembly.instructions.every(function (_instruction, _instruction_i) {
+                        if (_instruction.addr == parameters.address) {
+                            _instruction.Disassembly[file.disassembly.id].addBreakpoint();
+                            return false;
+                        }
+
+                        return true;
+                    });
+
+                    return true;
+                };
+
+                file.delBreakpoint = function (parameters) {
+                    var is_exists = false;
+                    
+                    file.breakpoints.forEach(function (_bp, _bp_i) {
+                        if (_bp.address == parameters.address) {
+                            file.breakpoints.splice(_bp_i, 1);
+                            is_exists = true;
+                            
+                            return false;
+                        }
+                    });
+
+                    if (!is_exists) return false;
+
+                    file.disassembly.instructions.every(function (_instruction, _instruction_i) {
+                        if (_instruction.addr == parameters.address) {
+                            _instruction.Disassembly[file.disassembly.id].delBreakpoint();
+                            return false;
+                        }
+
+                        return true;
+                    });
+                };
+
+                file.setStop = function (parameters) {
+                    file.stopped_addr = parameters.address;
+                };
+
+                file.clearStop = function () {
+                    if (file.stopped_addr == 0) return;
+
+                    file.stopped_addr = 0;
+                };
+                
+                data.files.push(file);
+                
+                $fileTabs_editors_noItem.hide();
+                $fileTabs_editors_items.show();
+                
+                var is_switched = false;
+
+                if ((data.files.length == 1) || parameters.switch) {
+                    data.switchFile({file: file, is_initial: parameters.is_initial});
+                    is_switched = true;
+                } else if (!parameters.is_initial) {
+                    data.saveState();
+                }
+                
+                return {
+                    file: file,
+                    is_switched
+                }
+            };
 
             data.openFile = function (parameters) {
                 if (parameters === undefined) {
@@ -199,6 +380,7 @@
 
                 file.variablePopup_variablesExplorer.is_mark_changes = false;
                 file.variablePopup_variablesExplorer.setMaxHeight({max_height: file.$variablePopup.css('max-height')});
+                file.variablePopup_variablesExplorer.setLinkedListVisualizerEnabled(false);
 
                 file.$variablePopup_variablesExplorer.on('VariablesExplorer_item_toggle.FileTabs', function (event, parameters) {
                     if (parameters.item.is_opened) {
@@ -215,11 +397,22 @@
                     });
     
                     var qs = {
-                        variable: parameters.item.variable.name
+                        variable: parameters.item.variable.expression
                     };
     
-                    if (tree.length > 1) {
+                    if (!qs.variable && (tree.length > 1)) {
                         qs['expression'] = tree.join('.');
+                    }
+
+                    if (
+                        parameters.item.parent
+                        &&
+                        (
+                            (parameters.item.variable.type.code == $.fn.VariablesExplorer.TYPE_CODE_STRUCT)
+                            ||
+                            (parameters.item.variable.type.code == $.fn.VariablesExplorer.TYPE_CODE_UNION))
+                    ) {
+                        qs.expression = '('+parameters.item.variable.type.name+')'+qs.expression;
                     }
     
                     $.ajax({
@@ -265,7 +458,7 @@
 
                 file.ace = ace.edit(file.$editor_ace.get(0));
                 file.ace.setReadOnly(GDBFrontend.components.gdbFrontend.is_readonly);
-                file.ace.setTheme('ace/theme/tomorrow_night_blue');
+                file.ace.setTheme(data.ace_theme);
                 file.ace.session.setMode(ace.require('ace/ext/modelist').getModeForPath(file.name).mode);
 
                 file.ace.commands.addCommand({
@@ -566,7 +759,7 @@
             data.closeFile = function (parameters) {
                 var file = parameters.file;
 
-                file.ace.destroy();
+                file.ace && file.ace.destroy();
                 file.$editor.remove();
                 file.$tab.remove();
 
@@ -603,7 +796,7 @@
 
                 file.$tab.addClass('FileTabs_tabs_items_item__current');
                 file.$editor.show();
-                file.ace.resize();
+                file.ace && file.ace.resize();
 
                 data.current = file;
 
@@ -632,7 +825,17 @@
                     if (
                         (parameters.check && parameters.check(_file))
                         ||
-                        (_file.path == parameters.path)
+                        (
+                            (_file.path !== undefined)
+                            &&
+                            (_file.path == parameters.path)
+                        )
+                        ||
+                        (
+                            (_file.disassembly !== undefined)
+                            &&
+                            (parameters.disassembly !== undefined)
+                        )
                     ) {
                         file = _file;
                         return false;
@@ -643,10 +846,12 @@
             };
 
             data.getFileByName = function (name) {
+                if (!name) return false;
+                
                 var file = false;
 
                 data.files.forEach(function (_file, _file_i) {
-                    if (_file.name == parameters.name) {
+                    if (_file.name == name) {
                         file = _file;
                         return false;
                     }
@@ -656,6 +861,8 @@
             };
 
             data.getFileByPath = function (path) {
+                if (!path) return false;
+                
                 var file = false;
 
                 data.files.forEach(function (_file, _file_i) {
@@ -675,13 +882,19 @@
             data.saveState = function (parameters) {
                 var files = [];
 
-                data.files.forEach(function (_file, _file_i) {
+                data.files.every(function (_file, _file_i) {
+                    if (_file.disassembly !== undefined) {
+                        return true;
+                    }
+                    
                     var file = {};
                     file.id = _file.id;
                     file.name = _file.name;
                     file.path = _file.path;
 
                     files.push(file)
+
+                    return true;
                 });
 
                 var state = {

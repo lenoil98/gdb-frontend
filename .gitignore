@@ -7,3 +7,7 @@ __pycache__
 .swo
 .swp
 plugins
+build
+dist
+gdbfrontend.egg-info
+mingw64

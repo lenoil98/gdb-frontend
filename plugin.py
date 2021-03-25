@@ -27,18 +27,24 @@ plugins/
        urls.py
        hello.py
 
-Plugins those are inside plugins directory will be loaded automatically.
+Plugins that are inside plugins directory will be loaded automatically.
 
 Plugin Name Format:
-On File System: hello
-Plugin Backend Class: HelloPlugin
+On File System: hello, hello_world
+Plugin Backend Class: HelloPlugin, HelloWorldPlugin
+
+Theme Plugin Name Format:
+On File System: theme_light, night_blue
+Plugin Backend Class: ThemeLightPlugin, ThemeNightBluePlugin
 """
 
 import os
 import importlib
+import json
 
 import config
 import util
+import api.globalvars
 
 def webFSPath(plugin_name, path):
     return os.path.join(config.PLUGINS_DIR, plugin_name, "frontend", path)
@@ -47,6 +53,9 @@ def init():
     global plugins
 
     plugins = {}
+
+def getAll():
+    return os.listdir(config.PLUGINS_DIR)
 
 def getPlugin(plugin_name):
     global plugins
@@ -60,6 +69,10 @@ def load(plugin_name):
     global plugins
 
     plugin_location = os.path.join(config.PLUGINS_DIR, plugin_name)
+
+    if not os.path.exists(plugin_location):
+        return False
+    
     module_path = os.path.join(plugin_location, plugin_name)+".py"
     config_path = os.path.join(plugin_location, "config")+".py"
     urls_path = os.path.join(plugin_location, "urls")+".py"
@@ -90,26 +103,55 @@ def load(plugin_name):
 
     plugins[plugin_name] = plugin
 
+    if api.globalvars.httpServer:
+        for client in api.globalvars.httpServer.ws_clients:
+            client.wsSend(json.dumps({
+                "event": "plugin_loaded",
+                "plugin": {
+                    "name": plugin_name
+                }
+            }))
+
     plugin.loaded()
 
     util.verbose("Plugin loaded:", plugin_name)
 
+    return True
+
 def unload(plugin_name):
     global plugins
 
-    plugin = plugins[plugin_name]
+    try:
+        plugin = plugins[plugin_name]
+    except KeyError:
+        return False
+    
     del plugins[plugin_name]
+
+    if api.globalvars.httpServer:
+        for client in api.globalvars.httpServer.ws_clients:
+            client.wsSend(json.dumps({
+                "event": "plugin_loaded",
+                "plugin": {
+                    "name": plugin_name
+                }
+            }))
 
     plugin.unloaded()
 
     util.verbose("Plugin unloaded:", plugin_name)
 
-def load_all():
+    return True
+
+def loadAll():
     global plugins
 
     plugin_dirs = config.plugin_order
 
     for plugin_dir in os.listdir(config.PLUGINS_DIR):
+        if plugin_dir.startswith("theme_"):
+            continue
+        
         if plugin_dir not in plugin_dirs:
             plugin_dirs.append(plugin_dir)
 

@@ -13,7 +13,11 @@ import threading
 import api.flags
 
 lock = False
-debugFlags = False
+debugFlags = None
+httpServer = None
+wsServer = None
+inferior_run_times = {}
+step_time = False
 
 def init():
     global lock
@@ -22,9 +26,19 @@ def init():
     global debugFlags
     debugFlags = api.flags.AtomicDebugFlags()
 
+    global httpServer
+    global httpServer
+    global wsServer
+    global inferior_run_times
+    global step_time
+
 def access(function):
     global lock
     global debugFlags
+    global httpServer
+    global wsServer
+    global inferior_run_times
+    global step_time
 
     lock.acquire()
     function()

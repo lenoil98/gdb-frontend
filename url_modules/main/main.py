@@ -40,15 +40,17 @@ def run(request, params):
 
         load_plugins.append(serializable)
 
+    install_directory = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
     js_init = """
     GDBFrontend = {};
     GDBFrontend.version = '"""+util.versionString(statics.VERSION)+"""';
+    GDBFrontend.install_directory = '"""+install_directory+"""';
     GDBFrontend.config = {};
     GDBFrontend.config.host_address = '"""+str(config.HOST_ADDRESS)+"""';
     GDBFrontend.config.bind_address = '"""+str(config.BIND_ADDRESS)+"""';
     GDBFrontend.config.http_port = """+str(config.HTTP_PORT)+""";
     GDBFrontend.config.gotty_port = """+str(config.GOTTY_PORT)+""";
-    GDBFrontend.config.server_port = """+str(config.SERVER_PORT)+""";
     GDBFrontend.config.app_path = '"""+str(config.app_path)+"""';
     GDBFrontend.config.plugins_dir = '"""+str(config.PLUGINS_DIR)+"""';
     GDBFrontend.config.gdb_path = '"""+str(config.gdb_path)+"""';
@@ -99,6 +101,7 @@ def run(request, params):
     html_fuzzyFinder = util.readFile(util.webFSPath("/components/FuzzyFinder/html/FuzzyFinder.html"))
     html_disassembly = util.readFile(util.webFSPath("/components/Disassembly/html/Disassembly.html"))
     html_evaluateExpression = util.readFile(util.webFSPath("/components/EvaluateExpression/html/EvaluateExpression.html"))
+    html_linkedListVisualizer = util.readFile(util.webFSPath("/components/LinkedListVisualizer/html/LinkedListVisualizer.html"))
 
     html_messageBox = html_messageBox.format(**vars())
     html_aboutDialog = html_aboutDialog.format(**vars())
@@ -114,6 +117,7 @@ def run(request, params):
     html_fuzzyFinder = html_fuzzyFinder.format(**vars())
     html_disassembly = html_disassembly.format(**vars())
     html_evaluateExpression = html_evaluateExpression.format(**vars())
+    html_linkedListVisualizer = html_linkedListVisualizer.format(**vars())
 
     html = util.readFile(util.webFSPath("/templates/modules/main/main.html")).format(**vars())
 

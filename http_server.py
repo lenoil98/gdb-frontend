@@ -8,9 +8,11 @@
 # Licensed under GNU/GPLv3
 # Copyright (C) 2019, Oğuzhan Eroğlu (https://oguzhaneroglu.com/) <rohanrhu2@gmail.com>
 
-import socketserver
+import websocket
 import http
-import http.server
+import socket
 
-class GDBFrontendHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    pass
+class GDBFrontendHTTPServer(websocket.HTTPServer):
+    def server_bind(self):
+        http.server.HTTPServer.server_bind(self)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
